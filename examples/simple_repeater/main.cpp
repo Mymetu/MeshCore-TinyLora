@@ -1,6 +1,10 @@
 #include <Arduino.h>   // needed for PlatformIO
 #include <Mesh.h>
 
+#ifdef TINYLORA_C3_REPEATER_IDLE_DELAY_MS
+  #include <esp_pm.h>
+#endif
+
 #include "MyMesh.h"
 
 #ifdef DISPLAY_CLASS
@@ -32,6 +36,15 @@ void setup() {
   delay(1000);
 
   board.begin();
+
+#ifdef TINYLORA_C3_REPEATER_IDLE_DELAY_MS
+  static esp_pm_config_esp32c3_t pm_config;
+  pm_config.max_freq_mhz = F_CPU / 1000000;
+  pm_config.min_freq_mhz = 20;
+  pm_config.light_sleep_enable = false;
+  esp_err_t pm_result = esp_pm_configure(&pm_config);
+  MESH_DEBUG_PRINTLN("C3 power management config result: %d", (int)pm_result);
+#endif
 
 #if defined(MESH_DEBUG) && defined(NRF52_PLATFORM)
   // give some extra time for serial to settle so
@@ -155,10 +168,15 @@ void loop() {
   if (the_mesh.getNodePrefs()->powersaving_enabled && !the_mesh.hasPendingWork()) {
 #if defined(NRF52_PLATFORM)
     board.sleep(0); // nrf ignores seconds param, sleeps whenever possible
-#else
+#elif !defined(TINYLORA_C3_REPEATER_IDLE_DELAY_MS)
     if (the_mesh.millisHasNowPassed(POWERSAVING_FIRSTSLEEP_SECS * 1000)) { // To check if it is time to sleep
       board.sleep(30); // Sleep. Wake up after a while or when receiving a LoRa packet
     }
 #endif
   }
+
+#ifdef TINYLORA_C3_REPEATER_IDLE_DELAY_MS
+  // Keep polling latency bounded while allowing DFS during queued forwarding delays.
+  delay(TINYLORA_C3_REPEATER_IDLE_DELAY_MS);
+#endif
 }

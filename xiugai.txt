@@ -1,0 +1,14 @@
+条目  内容  时间
+====  ====  ====
+1     修复 arduino-esp32 BLE 库拼写错误：添加 -D esp_ble_gap_ext_adv_reprot_t=esp_ble_gap_ext_adv_report_t 到 variants/heltec_ct62/platformio.ini 的 [env:Heltec_ct62_companion_radio_ble] build_flags 中  2026-07-29 12:36
+2     新增板卡 TinyLora_C3_V4_V5：基于 tinylora_solar_relay 参考移植，创建 variants/tiny_lora_c3_v4_v5/ 目录及全部5个文件（platformio.ini、target.h、target.cpp、TinyLoraC3V4V5Board.h、variant.h），含 simple_repeater 和 companion_radio_ble 两个编译目标  2026-07-29 12:50
+3     修复 TinyLora_C3_V4_V5 编译错误 P_LORA_DIO_1 未声明：在 base 的 build_flags 中补充所有 LoRa 引脚和板级宏定义  2026-07-29 13:02
+4     修复 TinyLora_C3_V4_V5 无日志/蓝牙不可用：在 base 的 build_flags 中启用 -D ARDUINO_USB_MODE=1 -D ARDUINO_USB_CDC_ON_BOOT=1，解决 ESP32-C3 Serial 默认走 UART0（GPIO20/21）与 I2C 引脚冲突问题  2026-07-29 13:08
+5     修改 TinyLora_C3_V4_V5 射频芯片为 SX1262：platformio.ini 中 RADIO_CLASS/WRAPPER_CLASS 改为 CustomSX1262，variant.h 中 USE_SX1268→USE_SX1262，target.h 中 include CustomSX1262Wrapper.h  2026-07-29 13:15
+6     修改 TinyLora_C3_V4_V5 射频芯片为 LLCC68 并补充 RXEN/TXEN 引脚：对比 Meshtastic 配置，芯片实际为 LLCC68，RADIO_CLASS=CustomLLCC68、WRAPPER_CLASS=CustomLLCC68Wrapper，添加 SX126X_RXEN=2、SX126X_TXEN=RADIOLIB_NC（射频开关控制）  2026-07-29 13:25
+7     修改 TinyLora_C3_V4_V5 射频芯片为 SX1268：用户确认芯片为 SX1268（非 LLCC68），RADIO_CLASS/WRAPPER_CLASS 改为 CustomSX1268/Wrapper，保留 RXEN=2、TXEN=RADIOLIB_NC  2026-07-29 13:30
+8     设置 TinyLora_C3_V4_V5 默认频率 480.375MHz SF11 125K CR5：LORA_FREQ=480.375/LORA_BW=125/LORA_SF=11/LORA_CR=5，芯片保持 SX1268（频率在 410-810MHz 范围内）  2026-07-29 13:40
+9     设置 TinyLora_C3_V4_V5 默认功率 1dBm 用户上限 22dBm：LORA_TX_POWER=1（开机默认），MAX_LORA_TX_POWER=22（app 可调上限），解决 app 设功率报 illegal arg 的问题（MyMesh.h 中 MAX_LORA_TX_POWER 默认等于 LORA_TX_POWER）  2026-07-29 13:55
+10    TinyLora_C3_V4_V5 LED(GPIO0) 心跳：亮 50ms / 灭 1000ms，FreeRTOS 独立任务，不阻塞主循环  2026-07-29 14:10
+11    新增板卡 TinyLora_C3_V2：基于 Meshtastic TINYLORA_V2 配置移植，SX1262+TCXO、无 RXEN、LED=GPIO2、DIO2 作为射频开关，含 repeater 和 companion_radio_ble 两个目标  2026-07-29 14:25
+12    TinyLora_C3 repeater 启用 ESP-IDF 自动电源管理（PM）：移除固定 ESP32_CPU_FREQ，让 CONFIG_PM_ENABLE + CONFIG_PM_DFS_INIT_AUTO 自动动态调频+light sleep（C3 SDK 默认已开启 PM），比固定 20MHz 更省电。BLE 模式保持 40MHz 稳定频率  2026-07-29 15:10

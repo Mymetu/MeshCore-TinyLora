@@ -1,5 +1,10 @@
 #include <Arduino.h>   // needed for PlatformIO
 #include <Mesh.h>
+
+#ifdef TINYLORA_C3_COMPANION_IDLE_DELAY_MS
+  #include <esp_pm.h>
+#endif
+
 #include "MyMesh.h"
 
 // Believe it or not, this std C function is busted on some platforms!
@@ -115,6 +120,15 @@ void setup() {
   Serial.begin(115200);
 
   board.begin();
+
+#ifdef TINYLORA_C3_COMPANION_IDLE_DELAY_MS
+  static esp_pm_config_esp32c3_t pm_config;
+  pm_config.max_freq_mhz = F_CPU / 1000000;
+  pm_config.min_freq_mhz = 20;
+  pm_config.light_sleep_enable = false;
+  esp_err_t pm_result = esp_pm_configure(&pm_config);
+  MESH_DEBUG_PRINTLN("C3 companion power management config result: %d", (int)pm_result);
+#endif
 
 #ifdef DISPLAY_CLASS
   DisplayDriver* disp = NULL;
@@ -264,5 +278,10 @@ void loop() {
     WiFi.reconnect();
     last_wifi_reconnect_attempt = millis();
   }
+#endif
+
+#ifdef TINYLORA_C3_COMPANION_IDLE_DELAY_MS
+  // BLE controller tasks wake independently; this only bounds application polling latency.
+  delay(TINYLORA_C3_COMPANION_IDLE_DELAY_MS);
 #endif
 }
