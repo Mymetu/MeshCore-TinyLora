@@ -25,8 +25,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // Board pins
-#define PIN_BOARD_SDA           (20)
-#define PIN_BOARD_SCL           (21)
+// I2C not used — pins 20/21 repurposed for GPS Serial1
 #define PIN_LED                 (0)
 #define PIN_BUTTON              (9)
 
