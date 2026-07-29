@@ -3,15 +3,42 @@
 # Adds PlatformIO post-processing to merge all the ESP flash images into a single image.
 
 import os
+import shutil
 
 Import("env", "projenv")
 
 board_config = env.BoardConfig()
 firmware_bin = "${BUILD_DIR}/${PROGNAME}.bin"
-merged_bin = os.environ.get("MERGED_BIN_PATH", "${BUILD_DIR}/${PROGNAME}-merged.bin")
+legacy_merged_bin = "${BUILD_DIR}/${PROGNAME}-merged.bin"
+
+
+def get_merged_bin_path(env):
+    overridden_path = os.environ.get("MERGED_BIN_PATH")
+    if overridden_path:
+        return overridden_path
+
+    pio_env = env.subst("$PIOENV")
+    if not pio_env.startswith("TinyLora_"):
+        return legacy_merged_bin
+
+    firmware_roles = (
+        "companion_radio_ble",
+        "companion_radio_usb",
+        "room_server",
+        "repeater",
+    )
+    for role in firmware_roles:
+        suffix = f"_{role}"
+        if pio_env.endswith(suffix):
+            board_name = pio_env[: -len(suffix)]
+            filename = f"{board_name}_MeshCore_firmware_{role}_factory.bin"
+            return os.path.join("${BUILD_DIR}", filename)
+
+    return os.path.join("${BUILD_DIR}", f"{pio_env}_MeshCore_firmware_factory.bin")
 
 
 def merge_bin_action(source, target, env):
+    merged_bin = get_merged_bin_path(env)
     flash_images = [
         *env.Flatten(env.get("FLASH_EXTRA_IMAGES", [])),
         "$ESP32_APP_OFFSET",
@@ -35,7 +62,16 @@ def merge_bin_action(source, target, env):
             *flash_images,
         ]
     )
-    env.Execute(merge_cmd)
+    if env.Execute(merge_cmd) != 0:
+        return 1
+
+    merged_path = env.subst(merged_bin)
+    legacy_path = env.subst(legacy_merged_bin)
+    if os.path.normcase(os.path.abspath(merged_path)) != os.path.normcase(os.path.abspath(legacy_path)):
+        shutil.copyfile(merged_path, legacy_path)
+        print(f"Compatibility copy: {legacy_path}")
+
+    return 0
 
 
 env.AddCustomTarget(
