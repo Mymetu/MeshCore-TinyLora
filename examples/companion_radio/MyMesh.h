@@ -67,6 +67,26 @@
 #define BLE_NAME_PREFIX "MeshCore-"
 #endif
 
+#ifndef DEFAULT_GPS_ENABLED
+#define DEFAULT_GPS_ENABLED 0
+#endif
+
+#ifndef DEFAULT_GPS_UPDATE_INTERVAL_SEC
+#define DEFAULT_GPS_UPDATE_INTERVAL_SEC 0
+#endif
+
+#ifndef DEFAULT_ADVERT_LOC_POLICY
+#define DEFAULT_ADVERT_LOC_POLICY ADVERT_LOC_NONE
+#endif
+
+#ifndef AUTO_ADVERT_INTERVAL_SEC
+#define AUTO_ADVERT_INTERVAL_SEC 0
+#endif
+
+#ifndef AUTO_ADVERT_FLOOD
+#define AUTO_ADVERT_FLOOD 0
+#endif
+
 #include <helpers/BaseChatMesh.h>
 #include <helpers/TransportKeyStore.h>
 
@@ -211,6 +231,9 @@ private:
   uint32_t pending_req;   // pending _BINARY_REQ
   BaseSerialInterface *_serial;
   AbstractUITask* _ui;
+#if AUTO_ADVERT_INTERVAL_SEC > 0
+  unsigned long next_auto_advert;
+#endif
 
   ContactsIterator _iter;
   uint32_t _iter_filter_since;

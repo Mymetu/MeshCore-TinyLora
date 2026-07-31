@@ -863,6 +863,9 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   next_ack_idx = 0;
   sign_data = NULL;
   dirty_contacts_expiry = 0;
+#if AUTO_ADVERT_INTERVAL_SEC > 0
+  next_auto_advert = 0;
+#endif
   memset(advert_paths, 0, sizeof(advert_paths));
   memset(send_scope.key, 0, sizeof(send_scope.key));
   send_unscoped = false;
@@ -876,8 +879,9 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   _prefs.bw = LORA_BW;
   _prefs.cr = LORA_CR;
   _prefs.tx_power_dbm = LORA_TX_POWER;
-  _prefs.gps_enabled = 0;       // GPS disabled by default
-  _prefs.gps_interval = 0;      // No automatic GPS updates by default
+  _prefs.gps_enabled = DEFAULT_GPS_ENABLED;
+  _prefs.gps_interval = DEFAULT_GPS_UPDATE_INTERVAL_SEC;
+  _prefs.advert_loc_policy = DEFAULT_ADVERT_LOC_POLICY;
   //_prefs.rx_delay_base = 10.0f;  enable once new algo fixed
 #if defined(USE_SX1262) || defined(USE_SX1268)
 #ifdef SX126X_RX_BOOSTED_GAIN
@@ -901,8 +905,12 @@ void MyMesh::begin(bool has_display) {
     _store->saveMainIdentity(self_id);
   }
 
-// if name is provided as a build flag, use that as default node name instead
-#ifdef ADVERT_NAME
+// If a prefix is provided, derive a stable suffix from the persisted random identity.
+#ifdef DEFAULT_NODE_NAME_PREFIX
+  char pub_key_suffix[5];
+  mesh::Utils::toHex(pub_key_suffix, self_id.pub_key, 2);
+  snprintf(_prefs.node_name, sizeof(_prefs.node_name), "%s%s", DEFAULT_NODE_NAME_PREFIX, pub_key_suffix);
+#elif defined(ADVERT_NAME)
   strcpy(_prefs.node_name, ADVERT_NAME);
 #else
   // use hex of first 4 bytes of identity public key as default node name
@@ -966,6 +974,10 @@ void MyMesh::begin(bool has_display) {
   radio_driver.setRxBoostedGainMode(_prefs.rx_boosted_gain);
   MESH_DEBUG_PRINTLN("RX Boosted Gain Mode: %s",
                      radio_driver.getRxBoostedGainMode() ? "Enabled" : "Disabled");
+
+#if AUTO_ADVERT_INTERVAL_SEC > 0
+  next_auto_advert = futureMillis((uint32_t)AUTO_ADVERT_INTERVAL_SEC * 1000UL);
+#endif
 }
 
 const char *MyMesh::getNodeName() {
@@ -2227,6 +2239,40 @@ void MyMesh::loop() {
     saveContacts();
     dirty_contacts_expiry = 0;
   }
+
+#if AUTO_ADVERT_INTERVAL_SEC > 0
+  if (next_auto_advert && millisHasNowPassed(next_auto_advert)) {
+    next_auto_advert = futureMillis((uint32_t)AUTO_ADVERT_INTERVAL_SEC * 1000UL);
+
+    bool location_ready = true;
+#if ENV_INCLUDE_GPS == 1
+    if (_prefs.advert_loc_policy == ADVERT_LOC_SHARE) {
+      LocationProvider* location = sensors.getLocationProvider();
+      location_ready = _prefs.gps_enabled && location && location->isValid();
+    }
+#endif
+
+    if (location_ready) {
+      mesh::Packet* pkt;
+      if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
+        pkt = createSelfAdvert(_prefs.node_name);
+      } else {
+        pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
+      }
+
+      if (pkt) {
+#if AUTO_ADVERT_FLOOD
+        TransportKey default_scope;
+        memcpy(default_scope.key, _prefs.default_scope_key, sizeof(default_scope.key));
+        sendFloodScoped(default_scope, pkt, 0);
+#else
+        sendZeroHop(pkt);
+#endif
+        MESH_DEBUG_PRINTLN("Automatic advert sent");
+      }
+    }
+  }
+#endif
 
 #ifdef DISPLAY_CLASS
   if (_ui) _ui->setHasConnection(_serial->isConnected());
