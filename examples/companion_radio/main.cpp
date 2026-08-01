@@ -7,6 +7,33 @@
 
 #include "MyMesh.h"
 
+#if defined(ESP32) && GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1
+  #include <esp_partition.h>
+
+static bool isSpiffsPartitionBlank() {
+  const esp_partition_t* partition = esp_partition_find_first(
+      ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, NULL);
+  if (!partition) return false;
+
+  uint8_t buffer[256];
+  for (size_t offset = 0; offset < partition->size; offset += sizeof(buffer)) {
+    size_t remaining = (size_t)(partition->size - offset);
+    size_t read_size = remaining < sizeof(buffer) ? remaining : sizeof(buffer);
+    if (esp_partition_read(partition, offset, buffer, read_size) != ESP_OK) return false;
+    for (size_t i = 0; i < read_size; i++) {
+      if (buffer[i] != 0xFF) return false;
+    }
+  }
+  return true;
+}
+
+static bool mountSpiffsPreservingData() {
+  if (SPIFFS.begin(false)) return true;
+  if (!isSpiffsPartitionBlank()) return false;
+  return SPIFFS.format() && SPIFFS.begin(false);
+}
+#endif
+
 // Believe it or not, this std C function is busted on some platforms!
 static uint32_t _atoi(const char* sp) {
   uint32_t n = 0;
@@ -203,7 +230,13 @@ void setup() {
   #endif
     the_mesh.startInterface(serial_interface);
 #elif defined(ESP32)
+#if GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1
+  if (!mountSpiffsPreservingData()) {
+    Serial.println("ERROR: SPIFFS mount failed; automatic format disabled to protect stored data");
+  }
+#else
   SPIFFS.begin(true);
+#endif
   store.begin();
   the_mesh.begin(
     #ifdef DISPLAY_CLASS

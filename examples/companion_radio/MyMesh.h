@@ -87,6 +87,23 @@
 #define AUTO_ADVERT_FLOOD 0
 #endif
 
+#ifndef GPS_HISTORY_MAX_RECORDS
+#define GPS_HISTORY_MAX_RECORDS 0
+#endif
+
+#ifndef GPS_HISTORY_INTERVAL_SEC
+#define GPS_HISTORY_INTERVAL_SEC 60
+#endif
+
+#if GPS_HISTORY_MAX_RECORDS > 65535
+#error "GPS_HISTORY_MAX_RECORDS must fit in uint16_t"
+#endif
+
+#if GPS_HISTORY_MAX_RECORDS > 0 && GPS_HISTORY_INTERVAL_SEC == 0
+#error "GPS_HISTORY_INTERVAL_SEC must be greater than zero"
+#endif
+
+#include "GpsHistoryStore.h"
 #include <helpers/BaseChatMesh.h>
 #include <helpers/TransportKeyStore.h>
 
@@ -219,6 +236,12 @@ private:
   void checkSerialInterface();
   bool isValidClientRepeatFreq(uint32_t f) const;
 
+#if GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1 && defined(ESP32)
+  void recordGpsHistory();
+  void writeGpsHistoryInfo();
+  void writeGpsHistoryPage(uint32_t session_id, uint32_t from_seq, uint8_t max_records);
+#endif
+
   // helpers, short-cuts
   void saveChannels() { _store->saveChannels(this); }
   void saveContacts();
@@ -233,6 +256,10 @@ private:
   AbstractUITask* _ui;
 #if AUTO_ADVERT_INTERVAL_SEC > 0
   unsigned long next_auto_advert;
+#endif
+#if GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1 && defined(ESP32)
+  GpsHistoryStore gps_history_store;
+  unsigned long next_gps_history_record;
 #endif
 
   ContactsIterator _iter;
