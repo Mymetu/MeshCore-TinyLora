@@ -129,6 +129,11 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
     }
   }
 
+  if (parser.hasLatLon()) {
+    onRemoteGpsAdvert(id, timestamp, getRTCClock()->getCurrentTime(),
+                      parser.getIntLat(), parser.getIntLon());
+  }
+
   // save a copy of raw advert packet (to support "Share..." function)
   int plen;
   {

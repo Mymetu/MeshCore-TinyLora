@@ -69,6 +69,10 @@
 #define CMD_GET_GPS_HISTORY_PAGE      0x71
 #define RESP_CODE_GPS_HISTORY_INFO    0x70
 #define RESP_CODE_GPS_HISTORY_PAGE    0x71
+#define CMD_GET_REMOTE_GPS_HISTORY_INFO   0x72
+#define CMD_GET_REMOTE_GPS_HISTORY_PAGE   0x73
+#define RESP_CODE_REMOTE_GPS_HISTORY_INFO 0x72
+#define RESP_CODE_REMOTE_GPS_HISTORY_PAGE 0x73
 
 // Stats sub-types for CMD_GET_STATS
 #define STATS_TYPE_CORE               0
@@ -145,6 +149,11 @@
 #define GPS_HISTORY_PAGE_FLAG_MORE      0x01
 #define GPS_HISTORY_PAGE_FLAG_GAP       0x02
 #define GPS_HISTORY_PAGE_HEADER_SIZE    11
+
+#define REMOTE_GPS_HISTORY_PROTOCOL_VERSION 1
+#define REMOTE_GPS_HISTORY_PAGE_FLAG_MORE  0x01
+#define REMOTE_GPS_HISTORY_PAGE_FLAG_GAP   0x02
+#define REMOTE_GPS_HISTORY_PAGE_HEADER_SIZE 11
 
 #define MAX_SIGN_DATA_LEN               (8 * 1024) // 8K
 
@@ -268,6 +277,127 @@ void MyMesh::writeGpsHistoryPage(uint32_t session_id, uint32_t from_seq, uint8_t
   }
 
   if (from_seq + record_count < next_seq) flags |= GPS_HISTORY_PAGE_FLAG_MORE;
+  out_frame[flags_pos] = flags;
+  _serial->writeFrame(out_frame, i);
+}
+#endif
+
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0 && defined(ESP32)
+void MyMesh::onRemoteGpsAdvert(const mesh::Identity& id, uint32_t advert_timestamp,
+                               uint32_t received_timestamp, int32_t latitude_e6,
+                               int32_t longitude_e6) {
+  if (remote_gps_pending_count >= REMOTE_GPS_PENDING_QUEUE_SIZE) {
+    flushRemoteGpsHistoryQueue();
+  }
+  if (remote_gps_pending_count >= REMOTE_GPS_PENDING_QUEUE_SIZE) {
+    MESH_DEBUG_PRINTLN("ERROR: remote GPS history queue is full");
+    return;
+  }
+
+  uint8_t tail = (remote_gps_pending_head + remote_gps_pending_count) %
+                 REMOTE_GPS_PENDING_QUEUE_SIZE;
+  RemoteGpsHistoryRecord& record = remote_gps_pending[tail];
+  memcpy(record.pub_key, id.pub_key, PUB_KEY_SIZE);
+  record.advert_timestamp = advert_timestamp;
+  record.received_timestamp = received_timestamp;
+  record.latitude_e6 = latitude_e6;
+  record.longitude_e6 = longitude_e6;
+  remote_gps_pending_count++;
+}
+
+void MyMesh::flushRemoteGpsHistoryQueue() {
+  while (remote_gps_pending_count > 0) {
+    const RemoteGpsHistoryRecord& record = remote_gps_pending[remote_gps_pending_head];
+    if (!remote_gps_history_store.append(record)) {
+      MESH_DEBUG_PRINTLN("ERROR: failed to append remote GPS history record");
+    }
+    remote_gps_pending_head = (remote_gps_pending_head + 1) %
+                              REMOTE_GPS_PENDING_QUEUE_SIZE;
+    remote_gps_pending_count--;
+  }
+}
+
+void MyMesh::writeRemoteGpsHistoryInfo() {
+  flushRemoteGpsHistoryQueue();
+  if (!remote_gps_history_store.isReady()) {
+    writeErrFrame(ERR_CODE_FILE_IO_ERROR);
+    return;
+  }
+
+  uint32_t session_id = remote_gps_history_store.getSessionId();
+  uint32_t oldest_seq = remote_gps_history_store.getOldestSequence();
+  uint32_t next_seq = remote_gps_history_store.getNextSequence();
+  uint16_t record_count = remote_gps_history_store.getCount();
+  uint16_t capacity = REMOTE_GPS_HISTORY_MAX_RECORDS;
+  int i = 0;
+
+  out_frame[i++] = RESP_CODE_REMOTE_GPS_HISTORY_INFO;
+  out_frame[i++] = REMOTE_GPS_HISTORY_PROTOCOL_VERSION;
+  memcpy(&out_frame[i], &session_id, 4);
+  i += 4;
+  memcpy(&out_frame[i], &oldest_seq, 4);
+  i += 4;
+  memcpy(&out_frame[i], &next_seq, 4);
+  i += 4;
+  memcpy(&out_frame[i], &record_count, 2);
+  i += 2;
+  memcpy(&out_frame[i], &capacity, 2);
+  i += 2;
+  out_frame[i++] = sizeof(RemoteGpsHistoryRecord);
+  _serial->writeFrame(out_frame, i);
+}
+
+void MyMesh::writeRemoteGpsHistoryPage(uint32_t session_id, uint32_t from_seq,
+                                       uint8_t max_records) {
+  flushRemoteGpsHistoryQueue();
+  if (!remote_gps_history_store.isReady() ||
+      session_id != remote_gps_history_store.getSessionId()) {
+    writeErrFrame(ERR_CODE_BAD_STATE);
+    return;
+  }
+
+  uint32_t oldest_seq = remote_gps_history_store.getOldestSequence();
+  uint32_t next_seq = remote_gps_history_store.getNextSequence();
+  uint8_t flags = 0;
+  if (from_seq < oldest_seq) {
+    from_seq = oldest_seq;
+    flags |= REMOTE_GPS_HISTORY_PAGE_FLAG_GAP;
+  } else if (from_seq > next_seq) {
+    writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+    return;
+  }
+
+  const uint8_t frame_record_limit =
+      (MAX_FRAME_SIZE - REMOTE_GPS_HISTORY_PAGE_HEADER_SIZE) /
+      sizeof(RemoteGpsHistoryRecord);
+  uint8_t record_limit = max_records == 0 ? frame_record_limit :
+                         min(max_records, frame_record_limit);
+  uint32_t available = next_seq - from_seq;
+  uint8_t record_count = min((uint32_t)record_limit, available);
+
+  int i = 0;
+  out_frame[i++] = RESP_CODE_REMOTE_GPS_HISTORY_PAGE;
+  uint32_t active_session_id = remote_gps_history_store.getSessionId();
+  memcpy(&out_frame[i], &active_session_id, 4);
+  i += 4;
+  memcpy(&out_frame[i], &from_seq, 4);
+  i += 4;
+  out_frame[i++] = record_count;
+  int flags_pos = i++;
+
+  for (uint8_t n = 0; n < record_count; n++) {
+    RemoteGpsHistoryRecord record;
+    if (!remote_gps_history_store.read(from_seq + n, record)) {
+      writeErrFrame(ERR_CODE_FILE_IO_ERROR);
+      return;
+    }
+    memcpy(&out_frame[i], &record, sizeof(record));
+    i += sizeof(record);
+  }
+
+  if (from_seq + record_count < next_seq) {
+    flags |= REMOTE_GPS_HISTORY_PAGE_FLAG_MORE;
+  }
   out_frame[flags_pos] = flags;
   _serial->writeFrame(out_frame, i);
 }
@@ -979,6 +1109,10 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
 #if GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1 && defined(ESP32)
   next_gps_history_record = 0;
 #endif
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0 && defined(ESP32)
+  remote_gps_pending_head = 0;
+  remote_gps_pending_count = 0;
+#endif
   memset(advert_paths, 0, sizeof(advert_paths));
   memset(send_scope.key, 0, sizeof(send_scope.key));
   send_unscoped = false;
@@ -1100,6 +1234,16 @@ void MyMesh::begin(bool has_display) {
   }
   // Offset flash writes from the one-minute automatic LoRa advert.
   next_gps_history_record = futureMillis((uint32_t)GPS_HISTORY_INTERVAL_SEC * 500UL);
+#endif
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0 && defined(ESP32)
+  uint32_t new_remote_history_session_id;
+  getRNG()->random((uint8_t*)&new_remote_history_session_id,
+                   sizeof(new_remote_history_session_id));
+  if (_store->getStorageTotalKb() == 0 ||
+      !remote_gps_history_store.begin(_store->getPrimaryFS(),
+                                      new_remote_history_session_id)) {
+    MESH_DEBUG_PRINTLN("ERROR: failed to initialise remote GPS history store");
+  }
 #endif
 }
 
@@ -2139,6 +2283,24 @@ void MyMesh::handleCmdFrame(size_t len) {
       writeErrFrame(ERR_CODE_ILLEGAL_ARG);
     }
 #endif
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0 && defined(ESP32)
+  } else if (cmd_frame[0] == CMD_GET_REMOTE_GPS_HISTORY_INFO) {
+    if (len == 1) {
+      writeRemoteGpsHistoryInfo();
+    } else {
+      writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+    }
+  } else if (cmd_frame[0] == CMD_GET_REMOTE_GPS_HISTORY_PAGE) {
+    if (len >= 10) {
+      uint32_t session_id;
+      uint32_t from_seq;
+      memcpy(&session_id, &cmd_frame[1], 4);
+      memcpy(&from_seq, &cmd_frame[5], 4);
+      writeRemoteGpsHistoryPage(session_id, from_seq, cmd_frame[9]);
+    } else {
+      writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+    }
+#endif
   } else {
     writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
     MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
@@ -2388,6 +2550,12 @@ void MyMesh::loop() {
   }
 #endif
 
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0 && defined(ESP32)
+  if (remote_gps_pending_count > 0) {
+    flushRemoteGpsHistoryQueue();
+  }
+#endif
+
 #if AUTO_ADVERT_INTERVAL_SEC > 0
   if (next_auto_advert && millisHasNowPassed(next_auto_advert)) {
     next_auto_advert = futureMillis((uint32_t)AUTO_ADVERT_INTERVAL_SEC * 1000UL);
@@ -2444,5 +2612,9 @@ bool MyMesh::advert() {
 
 // To check if there is pending work
 bool MyMesh::hasPendingWork() const {
-  return _mgr->getOutboundTotal() > 0 || dirty_contacts_expiry != 0;
+  bool pending = _mgr->getOutboundTotal() > 0 || dirty_contacts_expiry != 0;
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0 && defined(ESP32)
+  pending = pending || remote_gps_pending_count > 0;
+#endif
+  return pending;
 }

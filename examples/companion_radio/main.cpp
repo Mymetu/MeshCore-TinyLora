@@ -7,7 +7,8 @@
 
 #include "MyMesh.h"
 
-#if defined(ESP32) && GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1
+#if defined(ESP32) && ((GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1) || \
+                       (REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0))
   #include <esp_partition.h>
 
 static bool isSpiffsPartitionBlank() {
@@ -230,7 +231,8 @@ void setup() {
   #endif
     the_mesh.startInterface(serial_interface);
 #elif defined(ESP32)
-#if GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1
+#if (GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1) || \
+    (REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0)
   if (!mountSpiffsPreservingData()) {
     Serial.println("ERROR: SPIFFS mount failed; automatic format disabled to protect stored data");
   }

@@ -103,6 +103,9 @@ protected:
   virtual uint8_t getAutoAddMaxHops() const { return 0; }  // 0 = no limit, 1 = direct (0 hops), N = up to N-1 hops
   virtual void onContactOverwrite(const uint8_t* pub_key) {};
   virtual void onDiscoveredContact(ContactInfo& contact, bool is_new, uint8_t path_len, const uint8_t* path) = 0;
+  virtual void onRemoteGpsAdvert(const mesh::Identity& id, uint32_t advert_timestamp,
+                                 uint32_t received_timestamp, int32_t latitude_e6,
+                                 int32_t longitude_e6) {}
   virtual ContactInfo* processAck(const uint8_t *data) = 0;
   virtual void onContactPathUpdated(const ContactInfo& contact) = 0;
   virtual bool onContactPathRecv(ContactInfo& from, uint8_t* in_path, uint8_t in_path_len, uint8_t* out_path, uint8_t out_path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len);

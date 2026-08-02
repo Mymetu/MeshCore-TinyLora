@@ -95,6 +95,18 @@
 #define GPS_HISTORY_INTERVAL_SEC 60
 #endif
 
+#ifndef REMOTE_GPS_HISTORY
+#define REMOTE_GPS_HISTORY 0
+#endif
+
+#ifndef REMOTE_GPS_HISTORY_MAX_RECORDS
+#define REMOTE_GPS_HISTORY_MAX_RECORDS 0
+#endif
+
+#ifndef REMOTE_GPS_PENDING_QUEUE_SIZE
+#define REMOTE_GPS_PENDING_QUEUE_SIZE 8
+#endif
+
 #if GPS_HISTORY_MAX_RECORDS > 65535
 #error "GPS_HISTORY_MAX_RECORDS must fit in uint16_t"
 #endif
@@ -103,7 +115,24 @@
 #error "GPS_HISTORY_INTERVAL_SEC must be greater than zero"
 #endif
 
+#if REMOTE_GPS_HISTORY_MAX_RECORDS > 65535
+#error "REMOTE_GPS_HISTORY_MAX_RECORDS must fit in uint16_t"
+#endif
+
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS == 0
+#error "REMOTE_GPS_HISTORY_MAX_RECORDS must be greater than zero when remote GPS history is enabled"
+#endif
+
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_PENDING_QUEUE_SIZE == 0
+#error "REMOTE_GPS_PENDING_QUEUE_SIZE must be greater than zero"
+#endif
+
+#if REMOTE_GPS_PENDING_QUEUE_SIZE > 255
+#error "REMOTE_GPS_PENDING_QUEUE_SIZE must fit in uint8_t"
+#endif
+
 #include "GpsHistoryStore.h"
+#include "RemoteGpsHistoryStore.h"
 #include <helpers/BaseChatMesh.h>
 #include <helpers/TransportKeyStore.h>
 
@@ -160,6 +189,11 @@ protected:
   uint8_t getAutoAddMaxHops() const override;
   void onContactsFull() override;
   void onContactOverwrite(const uint8_t* pub_key) override;
+  #if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0 && defined(ESP32)
+  void onRemoteGpsAdvert(const mesh::Identity& id, uint32_t advert_timestamp,
+                         uint32_t received_timestamp, int32_t latitude_e6,
+                         int32_t longitude_e6) override;
+  #endif
   bool onContactPathRecv(ContactInfo& from, uint8_t* in_path, uint8_t in_path_len, uint8_t* out_path, uint8_t out_path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) override;
   void onDiscoveredContact(ContactInfo &contact, bool is_new, uint8_t path_len, const uint8_t* path) override;
   void onContactPathUpdated(const ContactInfo &contact) override;
@@ -241,6 +275,11 @@ private:
   void writeGpsHistoryInfo();
   void writeGpsHistoryPage(uint32_t session_id, uint32_t from_seq, uint8_t max_records);
 #endif
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0 && defined(ESP32)
+  void flushRemoteGpsHistoryQueue();
+  void writeRemoteGpsHistoryInfo();
+  void writeRemoteGpsHistoryPage(uint32_t session_id, uint32_t from_seq, uint8_t max_records);
+#endif
 
   // helpers, short-cuts
   void saveChannels() { _store->saveChannels(this); }
@@ -260,6 +299,12 @@ private:
 #if GPS_HISTORY_MAX_RECORDS > 0 && ENV_INCLUDE_GPS == 1 && defined(ESP32)
   GpsHistoryStore gps_history_store;
   unsigned long next_gps_history_record;
+#endif
+#if REMOTE_GPS_HISTORY == 1 && REMOTE_GPS_HISTORY_MAX_RECORDS > 0 && defined(ESP32)
+  RemoteGpsHistoryStore remote_gps_history_store;
+  RemoteGpsHistoryRecord remote_gps_pending[REMOTE_GPS_PENDING_QUEUE_SIZE];
+  uint8_t remote_gps_pending_head;
+  uint8_t remote_gps_pending_count;
 #endif
 
   ContactsIterator _iter;
