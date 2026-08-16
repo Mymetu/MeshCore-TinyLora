@@ -292,12 +292,28 @@ static void query_bme280(uint8_t ch, uint8_t, CayenneLPP& lpp) {
 #if ENV_INCLUDE_BMP280
 static uint8_t init_bmp280(TwoWire*, uint8_t addr) {
   // BMP280 static instance was constructed with TELEM_WIRE; begin() uses it.
-  return BMP280.begin(addr) ? 1 : 0;
+  if (!BMP280.begin(addr)) return 0;
+#if defined(ENV_BMP280_FORCED_MODE) && ENV_BMP280_FORCED_MODE
+  // Keep the sensor asleep between telemetry/UI reads. The library default
+  // is continuous high-oversampling mode, which wastes power on battery nodes.
+  BMP280.setSampling(Adafruit_BMP280::MODE_FORCED,
+                     Adafruit_BMP280::SAMPLING_X1,
+                     Adafruit_BMP280::SAMPLING_X1,
+                     Adafruit_BMP280::FILTER_OFF,
+                     Adafruit_BMP280::STANDBY_MS_1000);
+#endif
+  return 1;
 }
 static void query_bmp280(uint8_t ch, uint8_t, CayenneLPP& lpp) {
-  lpp.addTemperature(ch, BMP280.readTemperature());
-  lpp.addBarometricPressure(ch, BMP280.readPressure() / 100);
-  lpp.addAltitude(ch, BMP280.readAltitude(TELEM_BMP280_SEALEVELPRESSURE_HPA));
+#if defined(ENV_BMP280_FORCED_MODE) && ENV_BMP280_FORCED_MODE
+  if (BMP280.takeForcedMeasurement()) {
+#endif
+    lpp.addTemperature(ch, BMP280.readTemperature());
+    lpp.addBarometricPressure(ch, BMP280.readPressure() / 100);
+    lpp.addAltitude(ch, BMP280.readAltitude(TELEM_BMP280_SEALEVELPRESSURE_HPA));
+#if defined(ENV_BMP280_FORCED_MODE) && ENV_BMP280_FORCED_MODE
+  }
+#endif
 }
 #endif
 

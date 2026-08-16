@@ -10,6 +10,15 @@
 
 #define ADVERT_RESTART_DELAY  1000   // millis
 
+// Bluedroid uses 0.625 ms units. Keep the historical fast defaults unless a
+// board explicitly opts into a lower-power advertising cadence.
+#ifndef BLE_ADVERTISING_MIN_INTERVAL
+#define BLE_ADVERTISING_MIN_INTERVAL 0x20
+#endif
+#ifndef BLE_ADVERTISING_MAX_INTERVAL
+#define BLE_ADVERTISING_MAX_INTERVAL 0x40
+#endif
+
 void SerialBLEInterface::begin(const char* prefix, char* name, uint32_t pin_code) {
   _pin_code = pin_code;
 
@@ -140,8 +149,8 @@ void SerialBLEInterface::enable() {
 
   // Start advertising
 
-  //pServer->getAdvertising()->setMinInterval(500);
-  //pServer->getAdvertising()->setMaxInterval(1000);
+  pServer->getAdvertising()->setMinInterval(BLE_ADVERTISING_MIN_INTERVAL);
+  pServer->getAdvertising()->setMaxInterval(BLE_ADVERTISING_MAX_INTERVAL);
 
   pServer->getAdvertising()->start();
   adv_restart_time = 0;

@@ -7,6 +7,9 @@ bool SSD1306Display::i2c_probe(TwoWire& wire, uint8_t addr) {
 }
 
 bool SSD1306Display::begin() {
+#ifdef DISPLAY_I2C_CLOCK
+  Wire.setClock(DISPLAY_I2C_CLOCK);
+#endif
   if (!_isOn) {
     if (_peripher_power) _peripher_power->claim();
     _isOn = true;
@@ -14,7 +17,31 @@ bool SSD1306Display::begin() {
   #ifdef DISPLAY_ROTATION
   display.setRotation(DISPLAY_ROTATION);
   #endif
+
+#ifdef DISPLAY_ADDRESS_FALLBACK
+  uint8_t address = DISPLAY_ADDRESS;
+  if (!i2c_probe(Wire, address)) {
+    address = DISPLAY_ADDRESS_FALLBACK;
+  }
+  if (!i2c_probe(Wire, address)) {
+    _isOn = false;
+  #ifdef MESH_DEBUG
+    Serial.printf("DEBUG: SSD1306 not detected at I2C address %02X or %02X\n",
+                  DISPLAY_ADDRESS, DISPLAY_ADDRESS_FALLBACK);
+  #endif
+    return false;
+  }
+
+  bool initialized = display.begin(SSD1306_SWITCHCAPVCC, address, true, false);
+  if (!initialized) _isOn = false;
+  #ifdef MESH_DEBUG
+    Serial.printf("DEBUG: SSD1306 %s at I2C address %02X\n",
+                  initialized ? "detected" : "initialization failed", address);
+  #endif
+  return initialized;
+#else
   return display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_ADDRESS, true, false) && i2c_probe(Wire, DISPLAY_ADDRESS);
+#endif
 }
 
 void SSD1306Display::turnOn() {

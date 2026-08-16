@@ -450,7 +450,6 @@ public:
 #endif
 #if UI_SENSORS_PAGE == 1
     if (c == KEY_ENTER && _page == HomePage::SENSORS) {
-      _task->toggleGPS();
       next_sensors_refresh=0;
       return true;
     }
@@ -558,6 +557,15 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   _display = display;
   _sensors = sensors;
   _auto_off = millis() + AUTO_OFF_MILLIS;
+
+#ifdef UI_HAS_PCF8574_JOYSTICK
+  user_btn.begin();
+  joystick_up.begin();
+  joystick_down.begin();
+  joystick_left.begin();
+  joystick_right.begin();
+  back_btn.begin();
+#endif
 
 #if defined(PIN_USER_BTN)
   user_btn.begin();
@@ -704,7 +712,7 @@ void UITask::shutdown(bool restart){
 }
 
 bool UITask::isButtonPressed() const {
-#ifdef PIN_USER_BTN
+#if defined(PIN_USER_BTN) || defined(UI_HAS_PCF8574_JOYSTICK)
   return user_btn.isPressed();
 #else
   return false;
@@ -732,8 +740,28 @@ void UITask::loop() {
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
     c = handleLongPress(KEY_RIGHT);
   }
+#ifdef UI_HAS_PCF8574_JOYSTICK
+  ev = joystick_up.check();
+  if (ev == BUTTON_EVENT_CLICK) {
+    c = checkDisplayOn(KEY_PREV);
+  } else if (ev == BUTTON_EVENT_LONG_PRESS) {
+    c = handleLongPress(KEY_UP);
+  }
+  ev = joystick_down.check();
+  if (ev == BUTTON_EVENT_CLICK) {
+    c = checkDisplayOn(KEY_NEXT);
+  } else if (ev == BUTTON_EVENT_LONG_PRESS) {
+    c = handleLongPress(KEY_DOWN);
+  }
+#endif
   ev = back_btn.check();
-  if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
+  if (ev == BUTTON_EVENT_CLICK) {
+    if (checkDisplayOn(KEY_CANCEL) != 0) {
+      gotoHomeScreen();
+      _auto_off = millis() + AUTO_OFF_MILLIS;
+    }
+    c = 0;
+  } else if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
     c = handleTripleClick(KEY_SELECT);
   }
 #elif defined(PIN_USER_BTN)
