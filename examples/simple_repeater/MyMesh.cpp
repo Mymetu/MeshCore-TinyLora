@@ -959,6 +959,21 @@ void MyMesh::begin(FILESYSTEM *fs) {
   }
 #endif
 
+#ifdef TINYLORA_C3_AUTODETECT
+  // LLCC68 hardware limits: no SF12, and at 125/250 kHz bandwidth max SF is 9/10.
+  // Clamp persisted prefs to a valid combination when an LLCC68 is detected.
+  if (g_radio_chip_name && strcmp(g_radio_chip_name, "LLCC68") == 0) {
+    uint8_t max_sf = 11;
+    if (_prefs.bw <= 125.0f + 0.01f) max_sf = 9;
+    else if (_prefs.bw <= 250.0f + 0.01f) max_sf = 10;
+    if (_prefs.sf > max_sf) {
+      MESH_DEBUG_PRINTLN("LLCC68: clamping SF %d -> %d (BW %.0fkHz)", _prefs.sf, max_sf, _prefs.bw);
+      _prefs.sf = max_sf;
+      _cli.savePrefs(_fs);
+    }
+  }
+#endif
+
   radio_driver.setParams(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
   radio_driver.setTxPower(_prefs.tx_power_dbm);
 

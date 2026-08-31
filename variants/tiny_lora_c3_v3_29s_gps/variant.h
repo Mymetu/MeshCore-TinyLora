@@ -1,13 +1,22 @@
 /*
- * variant.h
- *
- * TinyLora C3 V4/V5 - ESP32-C3 based board
+ * TinyLora C3 V3 29S GPS - ESP32-C3 with an externally amplified SX1268
+ * (E22-900M29S style, chip output limited to 3dBm) + GPS.
+ * Difference from V3_29S: GPS on Serial1 (pins 20/21), GPS_EN on pin 2.
+ * I2C is not used - pins 20/21 are repurposed for GPS Serial1.
  */
 
 #pragma once
 
 ////////////////////////////////////////////////////////////////////////////////
-// Bat
+// GPS
+#define HAS_GPS                  1
+#define GPS_RX_PIN               21
+#define GPS_TX_PIN               20
+#define PIN_GPS_EN               2
+#define GPS_EN_ACTIVE            1
+
+////////////////////////////////////////////////////////////////////////////////
+// Battery
 #define PIN_VBAT_READ           (1)
 #define ADC_MULTIPLIER          (2.0F)
 #define ADC_RESOLUTION          (12)
@@ -15,15 +24,14 @@
 #define BATTERY_SAMPLES         (8)
 
 ////////////////////////////////////////////////////////////////////////////////
-// Other Pin
-#define PIN_BOARD_SDA           (20)
-#define PIN_BOARD_SCL           (21)
+// Board pins
 #define PIN_LED                 (0)
+#define PIN_BUTTON              (9)
 
 ////////////////////////////////////////////////////////////////////////////////
-// Lora
-// NOTE: no USE_SX1262/USE_SX1268 define here - the board auto-detects the
-// chip (SX1262 / SX1268 / LLCC68) at boot; the wrapper headers included by
+// LoRa
+// NOTE: no USE_SX1268 define here - the board auto-detects the chip
+// (SX1262 / SX1268 / LLCC68) at boot; the wrapper headers included by
 // target.h define USE_SX1262/USE_SX1268 so chip-specific code paths are
 // compiled in for all three.
 
@@ -36,9 +44,7 @@
 #define P_LORA_SCLK              (10)
 #define P_LORA_MISO              (6)
 #define P_LORA_MOSI              (7)
-#define SX126X_RXEN              (2)
-#define SX126X_TXEN              (RADIOLIB_NC)
 #define SX126X_DIO3_TCXO_VOLTAGE (1.8)
 #define SX126X_DIO2_AS_RF_SWITCH (true)
-#define SX126X_CURRENT_LIMIT     (140)
-#define SX126X_RX_BOOSTED_GAIN   (1)
+#define SX126X_CURRENT_LIMIT      (140)
+#define SX126X_RX_BOOSTED_GAIN    (1)

@@ -1,10 +1,9 @@
 #include <Arduino.h>
 #include "target.h"
 
+TinyLora_C3_V3_22S_GPS_Board board;
 
-TinyLora_C3_V4_V5_Board board;
-
-// The V4/V5 board can be populated with SX1262, SX1268 or LLCC68 (same
+// The V3 22S GPS board can be populated with SX1262, SX1268 or LLCC68 (same
 // pinout). One Module instance is shared by all three candidate radios;
 // radio_init() identifies the chip at boot (RadioLib version-string check)
 // and re-points the single wrapper at the detected radio.
@@ -23,7 +22,14 @@ const char* g_radio_chip_name = nullptr;
 
 ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
-SensorManager sensors;
+
+#if ENV_INCLUDE_GPS
+  #include <helpers/sensors/MicroNMEALocationProvider.h>
+  MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1, &rtc_clock);
+  EnvironmentSensorManager sensors = EnvironmentSensorManager(nmea);
+#else
+  EnvironmentSensorManager sensors;
+#endif
 
 bool radio_init() {
   fallback_clock.begin();
@@ -81,6 +87,6 @@ void radio_set_tx_power(int8_t dbm) {
 }
 
 mesh::LocalIdentity radio_new_identity() {
-  RadioNoiseListener rng(*g_radio);  // create new random identity
+  RadioNoiseListener rng(*g_radio);
   return mesh::LocalIdentity(&rng);
 }

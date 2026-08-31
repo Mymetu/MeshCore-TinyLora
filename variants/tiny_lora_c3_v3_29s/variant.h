@@ -21,7 +21,10 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // LoRa
-#define USE_SX1268
+// NOTE: no USE_SX1268 define here - the board auto-detects the chip
+// (SX1262 / SX1268 / LLCC68) at boot; the wrapper headers included by
+// target.h define USE_SX1262/USE_SX1268 so chip-specific code paths are
+// compiled in for all three.
 
 #define P_LORA_NSS               (8)
 #define P_LORA_RESET             (5)

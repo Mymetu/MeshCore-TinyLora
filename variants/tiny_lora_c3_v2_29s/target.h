@@ -3,7 +3,7 @@
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include <helpers/radiolib/RadioLibWrappers.h>
-#include "TinyLoraC3V4V5Board.h"
+#include "TinyLoraC3V229SBoard.h"
 #include <helpers/radiolib/CustomSX1262Wrapper.h>
 #include <helpers/radiolib/CustomSX1268Wrapper.h>
 #include <helpers/radiolib/CustomLLCC68Wrapper.h>
@@ -12,7 +12,7 @@
 #include <helpers/SensorManager.h>
 #include <variant.h>
 
-extern TinyLora_C3_V4_V5_Board board;
+extern TinyLora_C3_V2_29S_Board board;
 extern CustomSX126xAutoWrapper radio_driver;
 extern const char* g_radio_chip_name;
 extern AutoDiscoverRTCClock rtc_clock;

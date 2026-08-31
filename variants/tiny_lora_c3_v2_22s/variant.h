@@ -1,24 +1,18 @@
 /*
  * variant.h
  *
- * TinyLora C3 V4/V5 - ESP32-C3 based board
+ * TinyLora C3 V2 22S - ESP32-C3 based board
+ * E22-900M22S style module (max 22dBm), TCXO, GPS, no RXEN
  */
 
 #pragma once
 
 ////////////////////////////////////////////////////////////////////////////////
-// Bat
-#define PIN_VBAT_READ           (1)
-#define ADC_MULTIPLIER          (2.0F)
-#define ADC_RESOLUTION          (12)
-#define AREF_VOLTAGE            (3.0F)
-#define BATTERY_SAMPLES         (8)
-
-////////////////////////////////////////////////////////////////////////////////
 // Other Pin
 #define PIN_BOARD_SDA           (20)
 #define PIN_BOARD_SCL           (21)
-#define PIN_LED                 (0)
+#define PIN_LED                 (2)
+#define PIN_BUTTON              (9)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Lora
@@ -36,8 +30,6 @@
 #define P_LORA_SCLK              (10)
 #define P_LORA_MISO              (6)
 #define P_LORA_MOSI              (7)
-#define SX126X_RXEN              (2)
-#define SX126X_TXEN              (RADIOLIB_NC)
 #define SX126X_DIO3_TCXO_VOLTAGE (1.8)
 #define SX126X_DIO2_AS_RF_SWITCH (true)
 #define SX126X_CURRENT_LIMIT     (140)

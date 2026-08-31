@@ -936,6 +936,21 @@ void MyMesh::begin(bool has_display) {
   _prefs.gps_enabled = constrain(_prefs.gps_enabled, 0, 1);  // Ensure boolean 0 or 1
   _prefs.gps_interval = constrain(_prefs.gps_interval, 0, 86400);  // Max 24 hours
 
+#ifdef TINYLORA_C3_AUTODETECT
+  // LLCC68 hardware limits: no SF12, and at 125/250 kHz bandwidth max SF is 9/10.
+  // Clamp persisted prefs to a valid combination when an LLCC68 is detected.
+  if (g_radio_chip_name && strcmp(g_radio_chip_name, "LLCC68") == 0) {
+    uint8_t max_sf = 11;
+    if (_prefs.bw <= 125.0f + 0.01f) max_sf = 9;
+    else if (_prefs.bw <= 250.0f + 0.01f) max_sf = 10;
+    if (_prefs.sf > max_sf) {
+      MESH_DEBUG_PRINTLN("LLCC68: clamping SF %d -> %d (BW %.0fkHz)", _prefs.sf, max_sf, _prefs.bw);
+      _prefs.sf = max_sf;
+      savePrefs();
+    }
+  }
+#endif
+
 #ifdef BLE_PIN_CODE // 123456 by default
   if (_prefs.ble_pin == 0) {
 #ifdef DISPLAY_CLASS

@@ -2,9 +2,9 @@
 #include "target.h"
 
 
-TinyLora_C3_V4_V5_Board board;
+TinyLora_C3_V2_22S_Board board;
 
-// The V4/V5 board can be populated with SX1262, SX1268 or LLCC68 (same
+// The V2 22S board can be populated with SX1262, SX1268 or LLCC68 (same
 // pinout). One Module instance is shared by all three candidate radios;
 // radio_init() identifies the chip at boot (RadioLib version-string check)
 // and re-points the single wrapper at the detected radio.

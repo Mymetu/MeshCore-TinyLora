@@ -1,8 +1,9 @@
 /*
  * variant.h
  *
- * TinyLora C3 V2 - ESP32-C3 based board
- * SX1262 with TCXO, GPS, no RXEN
+ * TinyLora C3 V2 29S - ESP32-C3 based board
+ * E22-900M29S style module (external PA, chip output limited to 3dBm),
+ * TCXO, GPS, no RXEN
  */
 
 #pragma once
@@ -15,9 +16,11 @@
 #define PIN_BUTTON              (9)
 
 ////////////////////////////////////////////////////////////////////////////////
-// Lora - SX1262
-#define USE_SX1262
-#define USE_SX1268
+// Lora
+// NOTE: no USE_SX1262/USE_SX1268 define here - the board auto-detects the
+// chip (SX1262 / SX1268 / LLCC68) at boot; the wrapper headers included by
+// target.h define USE_SX1262/USE_SX1268 so chip-specific code paths are
+// compiled in for all three.
 
 #define P_LORA_NSS               (8)
 #define P_LORA_RESET             (5)

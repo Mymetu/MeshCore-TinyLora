@@ -10,11 +10,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-class TinyLora_C3_V2_Board : public ESP32Board {
-  uint32_t gpio_state = 0;
-
+class TinyLora_C3_V3_22S_Board : public ESP32Board {
   static void heartbeatTask(void* param) {
-    auto* board = (TinyLora_C3_V2_Board*)param;
     while (true) {
       digitalWrite(PIN_LED, HIGH);
       vTaskDelay(pdMS_TO_TICKS(50));
@@ -28,14 +25,12 @@ public:
     ESP32Board::begin();
 
     pinMode(PIN_LED, OUTPUT);
-    // startup blink
     for (int i = 4; i >= 0; i--) {
       digitalWrite(PIN_LED, HIGH);
       delay(200);
       digitalWrite(PIN_LED, LOW);
     }
     delay(500);
-    // start heartbeat (50ms on / 1000ms off)
     xTaskCreate(heartbeatTask, "led_hb", 2048, this, 1, NULL);
   }
 
@@ -46,14 +41,14 @@ public:
     for (int i = 0; i < BATTERY_SAMPLES; i++) {
       raw += analogRead(PIN_VBAT_READ);
     }
-    raw = raw / BATTERY_SAMPLES;
+    raw /= BATTERY_SAMPLES;
     return (raw * ADC_MULTIPLIER * AREF_VOLTAGE) / 4.096;
 #else
-    return 0; // not supported
+    return 0;
 #endif
   }
 
-  const char *getManufacturerName() const override { return "TinyLora C3 V2"; }
+  const char *getManufacturerName() const override { return "TinyLora C3 V3 22S"; }
 };
 
 #endif

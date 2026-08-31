@@ -4,13 +4,17 @@
 #include <RadioLib.h>
 #include <helpers/radiolib/RadioLibWrappers.h>
 #include "TinyLoraC3V329SBoard.h"
+#include <helpers/radiolib/CustomSX1262Wrapper.h>
 #include <helpers/radiolib/CustomSX1268Wrapper.h>
+#include <helpers/radiolib/CustomLLCC68Wrapper.h>
+#include <helpers/radiolib/CustomSX126xAutoWrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/sensors/EnvironmentSensorManager.h>
 #include <variant.h>
 
 extern TinyLora_C3_V3_29S_Board board;
-extern WRAPPER_CLASS radio_driver;
+extern CustomSX126xAutoWrapper radio_driver;
+extern const char* g_radio_chip_name;
 extern AutoDiscoverRTCClock rtc_clock;
 extern EnvironmentSensorManager sensors;
 
